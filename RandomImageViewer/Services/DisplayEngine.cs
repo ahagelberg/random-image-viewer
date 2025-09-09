@@ -33,12 +33,12 @@ namespace RandomImageViewer.Services
             {
                 lock (_imageLock)
                 {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.UriSource = new Uri(imageFile.FilePath);
-                    bitmap.EndInit();
-                    bitmap.Freeze(); // Make it thread-safe
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.UriSource = new Uri(imageFile.FilePath);
+                bitmap.EndInit();
+                bitmap.Freeze(); // Make it thread-safe
 
                     _currentImage = bitmap;
                     return _currentImage;

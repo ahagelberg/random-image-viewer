@@ -26,6 +26,7 @@ namespace RandomImageViewer
         private bool _previousTopmost;
         private DisplaySettings _displaySettings;
         private readonly Stack<ImageFile> _navigationHistory;
+        private readonly Stack<ImageFile> _forwardHistory; // For forward navigation through history
 
         public MainWindow()
         {
@@ -35,10 +36,12 @@ namespace RandomImageViewer
             _displayEngine = new DisplayEngine();
             _displaySettings = new DisplaySettings();
             _navigationHistory = new Stack<ImageFile>();
+            _forwardHistory = new Stack<ImageFile>();
             
             // Subscribe to events
             _imageManager.ScanProgressChanged += OnScanProgressChanged;
             _imageManager.ScanCompleted += OnScanCompleted;
+            _imageManager.ReadyToStart += OnReadyToStart;
             _displayEngine.ImageLoadError += OnImageLoadError;
             
             // Set focus to window for keyboard input
@@ -94,6 +97,22 @@ namespace RandomImageViewer
             });
         }
 
+        private void OnReadyToStart(object sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatusText.Text = $"Ready to start! Found {_imageManager.TotalImageCount} images so far...";
+                NextImageButton.IsEnabled = _imageManager.HasImages;
+                PreviousImageButton.IsEnabled = false; // No history yet
+                
+                if (_imageManager.HasImages)
+                {
+                    // Load the first image immediately
+                    LoadNextImage();
+                }
+            });
+        }
+
         private void OnScanCompleted(object sender, string message)
         {
             Dispatcher.Invoke(() =>
@@ -104,9 +123,9 @@ namespace RandomImageViewer
                 PreviousImageButton.IsEnabled = false; // No history yet
                 SelectFolderButton.IsEnabled = true;
                 
-                if (_imageManager.HasImages)
+                // Only load first image if we haven't already started
+                if (_imageManager.HasImages && _currentImage == null)
                 {
-                    // Load the first image
                     LoadNextImage();
                 }
             });
@@ -116,11 +135,36 @@ namespace RandomImageViewer
         {
             try
             {
+                // First, check if we have forward history to navigate through
+                if (_forwardHistory.Count > 0)
+                {
+                    // Navigate forward through history
+                    var forwardImage = _forwardHistory.Pop();
+                    
+                    // Add current image to backward history
+                    if (_currentImage != null)
+                    {
+                        _navigationHistory.Push(_currentImage);
+                    }
+                    
+                    _currentImage = forwardImage;
+                    DisplayImage(forwardImage);
+                    
+                    // Update button states
+                    NextImageButton.IsEnabled = _imageManager.HasImages || _forwardHistory.Count > 0;
+                    PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
+                    return;
+                }
+
+                // No forward history, proceed with normal random navigation
                 // Add current image to history before moving to next
                 if (_currentImage != null)
                 {
                     _navigationHistory.Push(_currentImage);
                 }
+
+                // Clear forward history since we're moving to new random images
+                _forwardHistory.Clear();
 
                 var nextImage = _imageManager.GetNextRandomImage();
                 if (nextImage == null)
@@ -205,17 +249,17 @@ namespace RandomImageViewer
                     // Get the previous image from history
                     var previousImage = _navigationHistory.Pop();
                     
-                    // Add current image back to the remaining images list
+                    // Add current image to forward history (so we can navigate back to it)
                     if (_currentImage != null)
                     {
-                        _imageManager.AddImageBack(_currentImage);
+                        _forwardHistory.Push(_currentImage);
                     }
                     
                     _currentImage = previousImage;
                     DisplayImage(previousImage);
                     
                     // Update button states
-                    NextImageButton.IsEnabled = _imageManager.HasImages;
+                    NextImageButton.IsEnabled = _imageManager.HasImages || _forwardHistory.Count > 0;
                     PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
                 }
                 else
@@ -229,6 +273,43 @@ namespace RandomImageViewer
             catch (Exception ex)
             {
                 MessageBox.Show($"Error loading previous image: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void JumpToEndOfHistory()
+        {
+            try
+            {
+                // If we have forward history, jump to the end (most recent image)
+                if (_forwardHistory.Count > 0)
+                {
+                    // Add current image to backward history
+                    if (_currentImage != null)
+                    {
+                        _navigationHistory.Push(_currentImage);
+                    }
+
+                    // Move all forward history items to backward history except the last one
+                    while (_forwardHistory.Count > 1)
+                    {
+                        _navigationHistory.Push(_forwardHistory.Pop());
+                    }
+
+                    // Get the last (most recent) image from forward history
+                    var endImage = _forwardHistory.Pop();
+                    _currentImage = endImage;
+                    DisplayImage(endImage);
+
+                    // Update button states
+                    NextImageButton.IsEnabled = _imageManager.HasImages;
+                    PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
+                }
+                // If no forward history, we're already at the end - do nothing
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error jumping to end of history: {ex.Message}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -265,6 +346,17 @@ namespace RandomImageViewer
                         if (!img.Equals(_currentImage))
                         {
                             _navigationHistory.Push(img);
+                        }
+                    }
+
+                    // Remove from forward history if it exists there
+                    var forwardHistoryArray = _forwardHistory.ToArray();
+                    _forwardHistory.Clear();
+                    foreach (var img in forwardHistoryArray)
+                    {
+                        if (!img.Equals(_currentImage))
+                        {
+                            _forwardHistory.Push(img);
                         }
                     }
 
@@ -433,6 +525,12 @@ namespace RandomImageViewer
                 case Key.Q:
                     // Exit application when Q is pressed
                     Close();
+                    e.Handled = true;
+                    break;
+                    
+                case Key.End:
+                    // Jump to the end of forward history (most recent image)
+                    JumpToEndOfHistory();
                     e.Handled = true;
                     break;
             }

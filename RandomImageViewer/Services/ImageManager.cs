@@ -19,6 +19,7 @@ namespace RandomImageViewer.Services
 
         public event EventHandler<int> ScanProgressChanged;
         public event EventHandler<string> ScanCompleted;
+        public event EventHandler ReadyToStart; // Fired when we have enough images to start showing
 
         public int TotalImageCount => _allImages.Count;
         public int RemainingImageCount => _remainingImages.Count;
@@ -50,34 +51,69 @@ namespace RandomImageViewer.Services
             {
                 try
                 {
+                    // Optimize for network shares: use parallel processing and batch operations
                     var allFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
+                        .AsParallel()
                         .Where(file => _supportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
                         .ToList();
 
                     int processedCount = 0;
-                    foreach (var file in allFiles)
+                    bool readyToStartFired = false;
+                    const int minImagesToStart = 10; // Start showing images after finding 10
+                    const int batchSize = 50; // Process files in batches for better performance
+
+                    // Process files in batches for better performance on network shares
+                    for (int i = 0; i < allFiles.Count; i += batchSize)
                     {
-                        try
+                        var batch = allFiles.Skip(i).Take(batchSize);
+                        
+                        foreach (var file in batch)
                         {
-                            var imageFile = new ImageFile(file);
-                            _allImages.Add(imageFile);
-                            _remainingImages.Add(imageFile);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log error but continue processing other files
-                            System.Diagnostics.Debug.WriteLine($"Error processing file {file}: {ex.Message}");
+                            try
+                            {
+                                var imageFile = new ImageFile(file);
+                                _allImages.Add(imageFile);
+                                _remainingImages.Add(imageFile);
+
+                                // Fire ReadyToStart event when we have enough images
+                                if (!readyToStartFired && _allImages.Count >= minImagesToStart)
+                                {
+                                    // Shuffle what we have so far
+                                    ShuffleList(_remainingImages);
+                                    ReadyToStart?.Invoke(this, EventArgs.Empty);
+                                    readyToStartFired = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log error but continue processing other files
+                                System.Diagnostics.Debug.WriteLine($"Error processing file {file}: {ex.Message}");
+                            }
+
+                            processedCount++;
                         }
 
-                        processedCount++;
-                        if (processedCount % 10 == 0) // Report progress every 10 files
+                        // Report progress after each batch
+                        ScanProgressChanged?.Invoke(this, processedCount);
+                        
+                        // Small delay to prevent UI freezing on large folders
+                        if (allFiles.Count > 1000)
                         {
-                            ScanProgressChanged?.Invoke(this, processedCount);
+                            System.Threading.Thread.Sleep(1);
                         }
                     }
 
-                    // Shuffle the remaining images for random order
-                    ShuffleList(_remainingImages);
+                    // Final shuffle of all images if we didn't start early
+                    if (!readyToStartFired && _remainingImages.Count > 0)
+                    {
+                        ShuffleList(_remainingImages);
+                        ReadyToStart?.Invoke(this, EventArgs.Empty);
+                    }
+                    else if (readyToStartFired && _remainingImages.Count > minImagesToStart)
+                    {
+                        // Re-shuffle all images for better randomness
+                        ShuffleList(_remainingImages);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -132,6 +168,18 @@ namespace RandomImageViewer.Services
         {
             _allImages.Remove(imageFile);
             _remainingImages.Remove(imageFile);
+        }
+
+        /// <summary>
+        /// Adds an image back to the remaining images list (for backward navigation)
+        /// </summary>
+        /// <param name="imageFile">Image to add back</param>
+        public void AddImageBack(ImageFile imageFile)
+        {
+            if (imageFile != null && !_remainingImages.Contains(imageFile))
+            {
+                _remainingImages.Add(imageFile);
+            }
         }
 
         /// <summary>

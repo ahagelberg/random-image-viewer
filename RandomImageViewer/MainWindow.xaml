@@ -36,26 +36,37 @@
             <Button Name="SelectFolderButton" 
                     Content="Select Folder" 
                     Click="SelectFolderButton_Click"
-                    Style="{StaticResource ButtonStyle}"/>
+                    Style="{StaticResource ButtonStyle}"
+                    Focusable="False"/>
+            
+            <Button Name="PreviousImageButton" 
+                    Content="Previous (Backspace)" 
+                    Click="PreviousImageButton_Click"
+                    Style="{StaticResource ButtonStyle}"
+                    IsEnabled="False"
+                    Focusable="False"/>
             
             <Button Name="NextImageButton" 
                     Content="Next (Space)" 
                     Click="NextImageButton_Click"
                     Style="{StaticResource ButtonStyle}"
-                    IsEnabled="False"/>
+                    IsEnabled="False"
+                    Focusable="False"/>
             
             <Separator Margin="10,0"/>
             
             <TextBlock Name="StatusText" 
                        Text="Select a folder to begin viewing images"
                        Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Focusable="False"/>
             
             <Separator Margin="10,0"/>
             
-            <TextBlock Text="Space: Next | Enter: Fullscreen | Esc: Exit | Q: Quit"
+            <TextBlock Text="Space: Next | Backspace: Previous | End: Jump to End | Delete: Remove | Enter: Fullscreen | Esc: Exit | Q: Quit"
                        Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Focusable="False"/>
         </StackPanel>
 
         <!-- Main Image Display Area -->
@@ -63,17 +74,20 @@
                 BorderBrush="DarkGray" 
                 BorderThickness="1" 
                 Margin="5"
-                Background="Black">
+                Background="Black"
+                Focusable="False">
             
             <ScrollViewer Name="ImageScrollViewer" 
                           HorizontalScrollBarVisibility="Auto" 
-                          VerticalScrollBarVisibility="Auto">
+                          VerticalScrollBarVisibility="Auto"
+                          Focusable="False">
                 
                 <Image Name="MainImage" 
                        Stretch="Uniform"
                        HorizontalAlignment="Center" 
                        VerticalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       Focusable="False"/>
             </ScrollViewer>
         </Border>
 
@@ -82,14 +96,16 @@
             <TextBlock Name="ImageInfoText" 
                        Text="No image loaded"
                        Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Focusable="False"/>
             
             <Separator Margin="10,0"/>
             
             <TextBlock Name="ProgressText" 
                        Text=""
                        Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Focusable="False"/>
         </StackPanel>
     </Grid>
 </Window>
