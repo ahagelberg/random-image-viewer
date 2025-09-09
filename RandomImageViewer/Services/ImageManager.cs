@@ -14,6 +14,8 @@ namespace RandomImageViewer.Services
     {
         private readonly List<ImageFile> _allImages;
         private readonly List<ImageFile> _remainingImages;
+        private readonly List<CollectionInfo> _allCollections;
+        private readonly List<CollectionInfo> _remainingCollections;
         private readonly Random _random;
         private readonly string[] _supportedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
         private readonly CollectionManager _collectionManager;
@@ -27,7 +29,11 @@ namespace RandomImageViewer.Services
 
         public int TotalImageCount => _allImages.Count;
         public int RemainingImageCount => _remainingImages.Count;
-        public bool HasImages => _allImages.Count > 0;
+        public int TotalCollectionCount => _allCollections.Count;
+        public int RemainingCollectionCount => _remainingCollections.Count;
+        public int TotalEntriesCount => _allImages.Count + _allCollections.Count; // Total selectable entries
+        public int RemainingEntriesCount => _remainingImages.Count + _remainingCollections.Count; // Total remaining entries
+        public bool HasImages => _allImages.Count > 0 || _allCollections.Count > 0;
         public bool IsInCollection => _currentCollection != null;
         public CollectionInfo CurrentCollection => _currentCollection;
 
@@ -35,6 +41,8 @@ namespace RandomImageViewer.Services
         {
             _allImages = new List<ImageFile>();
             _remainingImages = new List<ImageFile>();
+            _allCollections = new List<CollectionInfo>();
+            _remainingCollections = new List<CollectionInfo>();
             // Use current time as seed for better randomization between runs
             _random = new Random((int)DateTime.Now.Ticks);
             _collectionManager = new CollectionManager();
@@ -54,79 +62,107 @@ namespace RandomImageViewer.Services
 
             _allImages.Clear();
             _remainingImages.Clear();
+            _allCollections.Clear();
+            _remainingCollections.Clear();
 
             await Task.Run(() =>
             {
                 try
                 {
-                    // Optimize for network shares: use parallel processing and batch operations
+                    // Get all image files recursively
                     var allFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
                         .AsParallel()
                         .Where(file => _supportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
                         .ToList();
 
+                    // Group files by directory to identify collections
+                    var filesByDirectory = allFiles.GroupBy(file => Path.GetDirectoryName(file)).ToList();
+
                     int processedCount = 0;
                     bool readyToStartFired = false;
-                    const int minImagesToStart = 50; // Start showing images after finding 50 (better randomization)
+                    const int minEntriesToStart = 20; // Start showing after finding 20 entries (images + collections)
                     const int batchSize = 25; // Smaller batches for more frequent updates
-                    const int reshuffleThreshold = 25; // Re-shuffle when we get 25 more images
+                    const int reshuffleThreshold = 25; // Re-shuffle when we get 25 more entries
 
-                    // Process files in batches for better performance on network shares
-                    for (int i = 0; i < allFiles.Count; i += batchSize)
+                    // Process directories in batches
+                    for (int i = 0; i < filesByDirectory.Count; i += batchSize)
                     {
-                        var batch = allFiles.Skip(i).Take(batchSize);
-                        
-                        foreach (var file in batch)
+                        var batch = filesByDirectory.Skip(i).Take(batchSize);
+
+                        foreach (var directoryGroup in batch)
                         {
+                            var directoryPath = directoryGroup.Key;
+                            var filesInDirectory = directoryGroup.ToList();
+
                             try
                             {
-                                var imageFile = new ImageFile(file);
-                                _allImages.Add(imageFile);
-                                _remainingImages.Add(imageFile);
-
-                                // Fire ReadyToStart event when we have enough images
-                                if (!readyToStartFired && _allImages.Count >= minImagesToStart)
+                                // Check if this directory is a collection
+                                var collection = _collectionManager.DetectCollection(directoryPath);
+                                if (collection != null)
                                 {
-                                    // Shuffle what we have so far
+                                    // This is a collection - add it as a single entry
+                                    _collectionManager.PopulateCollectionImages(collection, filesInDirectory.Select(f => new ImageFile(f)).ToList());
+                                    _allCollections.Add(collection);
+                                    _remainingCollections.Add(collection);
+                                }
+                                else
+                                {
+                                    // These are individual images - add each one
+                                    foreach (var file in filesInDirectory)
+                                    {
+                                        var imageFile = new ImageFile(file);
+                                        _allImages.Add(imageFile);
+                                        _remainingImages.Add(imageFile);
+                                    }
+                                }
+
+                                // Fire ReadyToStart event when we have enough entries
+                                var totalEntries = _allImages.Count + _allCollections.Count;
+                                if (!readyToStartFired && totalEntries >= minEntriesToStart)
+                                {
+                                    // Shuffle both lists
                                     ShuffleList(_remainingImages);
+                                    ShuffleList(_remainingCollections);
                                     ReadyToStart?.Invoke(this, EventArgs.Empty);
                                     readyToStartFired = true;
                                 }
                                 // Re-shuffle periodically for better randomization
-                                else if (readyToStartFired && _allImages.Count % reshuffleThreshold == 0)
+                                else if (readyToStartFired && totalEntries % reshuffleThreshold == 0)
                                 {
                                     ShuffleList(_remainingImages);
+                                    ShuffleList(_remainingCollections);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                // Log error but continue processing other files
-                                System.Diagnostics.Debug.WriteLine($"Error processing file {file}: {ex.Message}");
+                                // Log error but continue processing other directories
+                                System.Diagnostics.Debug.WriteLine($"Error processing directory {directoryPath}: {ex.Message}");
                             }
 
-                            processedCount++;
-                        }
+                            processedCount += filesInDirectory.Count;
+                            ScanProgressChanged?.Invoke(this, processedCount);
 
-                        // Report progress after each batch
-                        ScanProgressChanged?.Invoke(this, processedCount);
-                        
-                        // Small delay to prevent UI freezing on large folders
-                        if (allFiles.Count > 1000)
-                        {
-                            System.Threading.Thread.Sleep(1);
+                            // Small delay for UI responsiveness on large folders
+                            if (processedCount % 100 == 0)
+                            {
+                                System.Threading.Thread.Sleep(1);
+                            }
                         }
                     }
 
-                    // Final shuffle of all images if we didn't start early
-                    if (!readyToStartFired && _remainingImages.Count > 0)
+                    // Final shuffle if we didn't start early
+                    var finalTotalEntries = _allImages.Count + _allCollections.Count;
+                    if (!readyToStartFired && finalTotalEntries > 0)
                     {
                         ShuffleList(_remainingImages);
+                        ShuffleList(_remainingCollections);
                         ReadyToStart?.Invoke(this, EventArgs.Empty);
                     }
                     else if (readyToStartFired)
                     {
                         // Final shuffle for better randomness
                         ShuffleList(_remainingImages);
+                        ShuffleList(_remainingCollections);
                     }
                 }
                 catch (Exception ex)
@@ -135,11 +171,13 @@ namespace RandomImageViewer.Services
                 }
             });
 
-            ScanCompleted?.Invoke(this, $"Found {_allImages.Count} images");
+            var totalImages = _allImages.Count;
+            var totalCollections = _allCollections.Count;
+            ScanCompleted?.Invoke(this, $"Found {totalImages} individual images and {totalCollections} collections");
         }
 
         /// <summary>
-        /// Gets the next image - either from a collection or random selection
+        /// Gets the next image - either from a collection or random selection with equal probability
         /// </summary>
         /// <returns>Next image, or null if no images available</returns>
         public ImageFile GetNextImage()
@@ -160,44 +198,39 @@ namespace RandomImageViewer.Services
                 }
             }
 
-            // Check if the next random image is from a collection folder
-            if (_remainingImages.Count > 0)
+            // Choose between individual images and collections with equal probability
+            var totalRemainingEntries = _remainingImages.Count + _remainingCollections.Count;
+            if (totalRemainingEntries == 0)
             {
-                var nextImage = _remainingImages[0];
-                var imageFolder = Path.GetDirectoryName(nextImage.FilePath);
-                
-                // Check if this image's folder is a collection
-                var collection = _collectionManager.DetectCollection(imageFolder);
-                if (collection != null)
-                {
-                    // Remove all images from this collection folder from remaining images
-                    var collectionImages = _remainingImages.Where(img => 
-                        Path.GetDirectoryName(img.FilePath) == imageFolder).ToList();
-                    
-                    foreach (var img in collectionImages)
-                    {
-                        _remainingImages.Remove(img);
-                    }
-
-                    // Set up the collection
-                    _collectionManager.PopulateCollectionImages(collection, collectionImages);
-                    _currentCollection = collection;
-                    
-                    // Fire collection started event
-                    CollectionStarted?.Invoke(this, collection);
-                    
-                    // Return the first image from the collection
-                    return _collectionManager.GetNextImageInCollection(collection);
-                }
-                else
-                {
-                    // Normal random image
-                    _remainingImages.RemoveAt(0);
-                    return nextImage;
-                }
+                return null;
             }
 
-            return null;
+            // Randomly choose between individual images and collections
+            var randomIndex = _random.Next(totalRemainingEntries);
+            
+            if (randomIndex < _remainingImages.Count)
+            {
+                // Select an individual image
+                var selectedImage = _remainingImages[randomIndex];
+                _remainingImages.RemoveAt(randomIndex);
+                return selectedImage;
+            }
+            else
+            {
+                // Select a collection
+                var collectionIndex = randomIndex - _remainingImages.Count;
+                var selectedCollection = _remainingCollections[collectionIndex];
+                _remainingCollections.RemoveAt(collectionIndex);
+                
+                // Set up the collection
+                _currentCollection = selectedCollection;
+                
+                // Fire collection started event
+                CollectionStarted?.Invoke(this, selectedCollection);
+                
+                // Return the first image from the collection
+                return _collectionManager.GetNextImageInCollection(selectedCollection);
+            }
         }
 
         /// <summary>
@@ -210,13 +243,16 @@ namespace RandomImageViewer.Services
         }
 
         /// <summary>
-        /// Resets the remaining images list to include all images again
+        /// Resets the remaining images and collections lists to include all entries again
         /// </summary>
         public void ResetRemainingImages()
         {
             _remainingImages.Clear();
             _remainingImages.AddRange(_allImages);
+            _remainingCollections.Clear();
+            _remainingCollections.AddRange(_allCollections);
             ShuffleList(_remainingImages);
+            ShuffleList(_remainingCollections);
             _currentCollection = null; // Clear any current collection
         }
 
