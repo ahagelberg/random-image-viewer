@@ -396,6 +396,15 @@ namespace RandomImageViewer
             // Handle global shortcuts that should work regardless of focus
             switch (e.Key)
             {
+                case Key.Space:
+                    // Global next image - always works
+                    if (_imageManager.HasImages)
+                    {
+                        LoadNextImage();
+                    }
+                    e.Handled = true;
+                    break;
+                    
                 case Key.Enter:
                     // Global fullscreen toggle - always works
                     ToggleFullscreen();
@@ -434,14 +443,6 @@ namespace RandomImageViewer
             // Handle navigation shortcuts (only when window has focus)
             switch (e.Key)
             {
-                case Key.Space:
-                    if (_imageManager.HasImages)
-                    {
-                        LoadNextImage();
-                    }
-                    e.Handled = true;
-                    break;
-                    
                 case Key.Back:
                     // Backspace key for previous image
                     LoadPreviousImage();
