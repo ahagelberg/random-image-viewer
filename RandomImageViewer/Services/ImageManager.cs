@@ -16,20 +16,27 @@ namespace RandomImageViewer.Services
         private readonly List<ImageFile> _remainingImages;
         private readonly Random _random;
         private readonly string[] _supportedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
+        private readonly CollectionManager _collectionManager;
+        private CollectionInfo _currentCollection;
 
         public event EventHandler<int> ScanProgressChanged;
         public event EventHandler<string> ScanCompleted;
         public event EventHandler ReadyToStart; // Fired when we have enough images to start showing
+        public event EventHandler<CollectionInfo> CollectionStarted; // Fired when a collection is started
+        public event EventHandler<CollectionInfo> CollectionCompleted; // Fired when a collection is completed
 
         public int TotalImageCount => _allImages.Count;
         public int RemainingImageCount => _remainingImages.Count;
         public bool HasImages => _allImages.Count > 0;
+        public bool IsInCollection => _currentCollection != null;
+        public CollectionInfo CurrentCollection => _currentCollection;
 
         public ImageManager()
         {
             _allImages = new List<ImageFile>();
             _remainingImages = new List<ImageFile>();
             _random = new Random();
+            _collectionManager = new CollectionManager();
         }
 
         /// <summary>
@@ -125,20 +132,74 @@ namespace RandomImageViewer.Services
         }
 
         /// <summary>
-        /// Gets the next random image from the remaining images
+        /// Gets the next image - either from a collection or random selection
+        /// </summary>
+        /// <returns>Next image, or null if no images available</returns>
+        public ImageFile GetNextImage()
+        {
+            // If we're in a collection, get the next image from the collection
+            if (_currentCollection != null)
+            {
+                var collectionImage = _collectionManager.GetNextImageInCollection(_currentCollection);
+                if (collectionImage != null)
+                {
+                    return collectionImage;
+                }
+                else
+                {
+                    // Collection is complete, fire event and clear it
+                    CollectionCompleted?.Invoke(this, _currentCollection);
+                    _currentCollection = null;
+                }
+            }
+
+            // Check if the next random image is from a collection folder
+            if (_remainingImages.Count > 0)
+            {
+                var nextImage = _remainingImages[0];
+                var imageFolder = Path.GetDirectoryName(nextImage.FilePath);
+                
+                // Check if this image's folder is a collection
+                var collection = _collectionManager.DetectCollection(imageFolder);
+                if (collection != null)
+                {
+                    // Remove all images from this collection folder from remaining images
+                    var collectionImages = _remainingImages.Where(img => 
+                        Path.GetDirectoryName(img.FilePath) == imageFolder).ToList();
+                    
+                    foreach (var img in collectionImages)
+                    {
+                        _remainingImages.Remove(img);
+                    }
+
+                    // Set up the collection
+                    _collectionManager.PopulateCollectionImages(collection, collectionImages);
+                    _currentCollection = collection;
+                    
+                    // Fire collection started event
+                    CollectionStarted?.Invoke(this, collection);
+                    
+                    // Return the first image from the collection
+                    return _collectionManager.GetNextImageInCollection(collection);
+                }
+                else
+                {
+                    // Normal random image
+                    _remainingImages.RemoveAt(0);
+                    return nextImage;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the next random image from the remaining images (legacy method)
         /// </summary>
         /// <returns>Next random image, or null if no images available</returns>
         public ImageFile GetNextRandomImage()
         {
-            if (_remainingImages.Count == 0)
-            {
-                return null;
-            }
-
-            var selectedImage = _remainingImages[0];
-            _remainingImages.RemoveAt(0);
-
-            return selectedImage;
+            return GetNextImage();
         }
 
         /// <summary>
@@ -149,6 +210,40 @@ namespace RandomImageViewer.Services
             _remainingImages.Clear();
             _remainingImages.AddRange(_allImages);
             ShuffleList(_remainingImages);
+            _currentCollection = null; // Clear any current collection
+        }
+
+        /// <summary>
+        /// Gets the previous image in the current collection
+        /// </summary>
+        /// <returns>Previous image in collection, or null if not in collection or at beginning</returns>
+        public ImageFile GetPreviousImageInCollection()
+        {
+            if (_currentCollection == null)
+                return null;
+
+            return _collectionManager.GetPreviousImageInCollection(_currentCollection);
+        }
+
+        /// <summary>
+        /// Checks if there are more images in the current collection
+        /// </summary>
+        /// <returns>True if there are more images in the collection</returns>
+        public bool HasMoreImagesInCollection()
+        {
+            return _currentCollection != null && _collectionManager.HasMoreImages(_currentCollection);
+        }
+
+        /// <summary>
+        /// Skips the current collection and returns to random mode
+        /// </summary>
+        public void SkipCurrentCollection()
+        {
+            if (_currentCollection != null)
+            {
+                CollectionCompleted?.Invoke(this, _currentCollection);
+                _currentCollection = null;
+            }
         }
 
         /// <summary>

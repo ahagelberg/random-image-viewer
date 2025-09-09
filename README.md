@@ -74,14 +74,47 @@ A Windows GUI application for viewing images in random order from selected folde
 - PNG (.png)
 - GIF (.gif) - Both static and animated GIFs
 
+## Special Collection Folders
+
+The application supports special image collection folders that display images in sequence rather than randomly:
+
+### Collection Detection Methods
+
+1. **`.collection` file** - Add a `.collection` file to any folder to mark it as a collection
+2. **`_collections` folder** - All subfolders inside a `_collections` directory are treated as collections
+3. **Special naming** - Folders with names starting with `[COLLECTION]`, `[ALBUM]`, or `[SEQUENCE]`, or ending with `_collection`, `_album`, or `_sequence`
+
+### Collection Behavior
+
+- **Sequential Display**: Images in collections are shown in order (alphabetical by default)
+- **Automatic Detection**: When a collection image is randomly selected, the entire collection is displayed sequentially
+- **Collection Completion**: After showing all images in a collection, the app returns to random mode
+- **Status Display**: The status bar shows when you're viewing a collection and how many images it contains
+
+### Collection Configuration (`.collection` file)
+
+Create a `.collection` file with JSON content to customize collection behavior:
+
+```json
+{
+  "name": "My Photo Album",
+  "order": "alphabetical",
+  "autoAdvance": false,
+  "delay": 3000
+}
+```
+
+**Configuration Options:**
+- `name`: Display name for the collection
+- `order`: `alphabetical`, `dateCreated`, `dateModified`, `fileSize`, or `random`
+- `autoAdvance`: Whether to automatically advance through images
+- `delay`: Delay between images in milliseconds (if auto-advance is enabled)
+
 ## Future Features (Planned)
 
-- Backward navigation (Backspace key)
-- Image deletion with confirmation (Delete key)
 - Zoom controls (+/- keys)
 - Pan controls (arrow keys)
-- Special folder support
-- Additional image format support (GIF, WebP, TIFF, etc.)
+- Additional image format support (BMP, TIFF, WebP)
 
 ## Technical Details
 

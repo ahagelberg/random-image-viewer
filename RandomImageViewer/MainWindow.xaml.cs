@@ -43,6 +43,8 @@ namespace RandomImageViewer
             _imageManager.ScanProgressChanged += OnScanProgressChanged;
             _imageManager.ScanCompleted += OnScanCompleted;
             _imageManager.ReadyToStart += OnReadyToStart;
+            _imageManager.CollectionStarted += OnCollectionStarted;
+            _imageManager.CollectionCompleted += OnCollectionCompleted;
             _displayEngine.ImageLoadError += OnImageLoadError;
             
             // Set focus to window for keyboard input
@@ -114,6 +116,28 @@ namespace RandomImageViewer
             });
         }
 
+        private void OnCollectionStarted(object sender, CollectionInfo collection)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (!_isFullscreen)
+                {
+                    StatusText.Text = $"Collection: {collection.Name} ({collection.Images.Count} images)";
+                }
+            });
+        }
+
+        private void OnCollectionCompleted(object sender, CollectionInfo collection)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (!_isFullscreen)
+                {
+                    StatusText.Text = $"Collection '{collection.Name}' completed. Resuming random display.";
+                }
+            });
+        }
+
         private void OnScanCompleted(object sender, string message)
         {
             Dispatcher.Invoke(() =>
@@ -167,12 +191,12 @@ namespace RandomImageViewer
                 // Clear forward history since we're moving to new random images
                 _forwardHistory.Clear();
 
-                var nextImage = _imageManager.GetNextRandomImage();
+                var nextImage = _imageManager.GetNextImage();
                 if (nextImage == null)
                 {
                     StatusText.Text = "No more images available. Resetting...";
                     _imageManager.ResetRemainingImages();
-                    nextImage = _imageManager.GetNextRandomImage();
+                    nextImage = _imageManager.GetNextImage();
                 }
 
                 if (nextImage != null)
