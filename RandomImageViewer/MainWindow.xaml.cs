@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using RandomImageViewer.Models;
 using RandomImageViewer.Services;
+using XamlAnimatedGif;
 
 namespace RandomImageViewer
 {
@@ -198,11 +199,27 @@ namespace RandomImageViewer
                 var bitmap = _displayEngine.LoadImage(imageFile);
                 if (bitmap != null)
                 {
-                    // Set the image source
-                    MainImage.Source = bitmap;
-                    
-                    // Set the image dimensions to fit the available space
-                    SetImageDimensions(bitmap);
+                    // Check if this is a GIF file
+                    if (imageFile.FilePath.ToLowerInvariant().EndsWith(".gif"))
+                    {
+                        // For GIF files, use XamlAnimatedGif
+                        AnimationBehavior.SetSourceUri(MainImage, new Uri(imageFile.FilePath));
+                        AnimationBehavior.SetAutoStart(MainImage, true);
+                        AnimationBehavior.SetRepeatBehavior(MainImage, System.Windows.Media.Animation.RepeatBehavior.Forever);
+                        
+                        // Don't scale animated GIFs - display at original size
+                        MainImage.Width = double.NaN; // Auto size
+                        MainImage.Height = double.NaN; // Auto size
+                    }
+                    else
+                    {
+                        // For static images, use normal bitmap display
+                        AnimationBehavior.SetSourceUri(MainImage, null); // Clear any GIF animation
+                        MainImage.Source = bitmap;
+                        
+                        // Set the image dimensions to fit the available space
+                        SetImageDimensions(bitmap);
+                    }
                     
                     // Update status information (only if not in fullscreen)
                     if (!_isFullscreen)
