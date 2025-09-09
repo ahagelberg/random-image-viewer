@@ -1,0 +1,451 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
+using Microsoft.Win32;
+using RandomImageViewer.Models;
+using RandomImageViewer.Services;
+
+namespace RandomImageViewer
+{
+    /// <summary>
+    /// Main window for the Random Image Viewer application
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        private readonly ImageManager _imageManager;
+        private readonly DisplayEngine _displayEngine;
+        private ImageFile _currentImage;
+        private string _selectedFolder;
+        private bool _isFullscreen = false;
+        private WindowState _previousWindowState;
+        private WindowStyle _previousWindowStyle;
+        private bool _previousTopmost;
+        private DisplaySettings _displaySettings;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            
+            _imageManager = new ImageManager();
+            _displayEngine = new DisplayEngine();
+            _displaySettings = new DisplaySettings();
+            
+            // Subscribe to events
+            _imageManager.ScanProgressChanged += OnScanProgressChanged;
+            _imageManager.ScanCompleted += OnScanCompleted;
+            _displayEngine.ImageLoadError += OnImageLoadError;
+            
+            // Set focus to window for keyboard input
+            Loaded += (s, e) => Focus();
+            
+            // Load display settings
+            LoadDisplaySettings();
+        }
+
+        private async void SelectFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFolderDialog
+            {
+                Title = "Select Folder Containing Images",
+                InitialDirectory = _selectedFolder ?? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _selectedFolder = dialog.FolderName;
+                await LoadImagesFromFolder(_selectedFolder);
+            }
+        }
+
+        private async Task LoadImagesFromFolder(string folderPath)
+        {
+            try
+            {
+                StatusText.Text = "Scanning folder for images...";
+                NextImageButton.IsEnabled = false;
+                SelectFolderButton.IsEnabled = false;
+                
+                await _imageManager.ScanFolderAsync(folderPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading images: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusText.Text = "Error loading images";
+                NextImageButton.IsEnabled = false;
+                SelectFolderButton.IsEnabled = true;
+            }
+        }
+
+        private void OnScanProgressChanged(object sender, int processedCount)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ProgressText.Text = $"Processing: {processedCount} files...";
+            });
+        }
+
+        private void OnScanCompleted(object sender, string message)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatusText.Text = message;
+                ProgressText.Text = "";
+                NextImageButton.IsEnabled = _imageManager.HasImages;
+                SelectFolderButton.IsEnabled = true;
+                
+                if (_imageManager.HasImages)
+                {
+                    // Load the first image
+                    LoadNextImage();
+                }
+            });
+        }
+
+        private void LoadNextImage()
+        {
+            try
+            {
+                var nextImage = _imageManager.GetNextRandomImage();
+                if (nextImage == null)
+                {
+                    StatusText.Text = "No more images available. Resetting...";
+                    _imageManager.ResetRemainingImages();
+                    nextImage = _imageManager.GetNextRandomImage();
+                }
+
+                if (nextImage != null)
+                {
+                    _currentImage = nextImage;
+                    DisplayImage(nextImage);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading next image: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DisplayImage(ImageFile imageFile)
+        {
+            try
+            {
+                var bitmap = _displayEngine.LoadImage(imageFile);
+                if (bitmap != null)
+                {
+                    // Set the image source
+                    MainImage.Source = bitmap;
+                    
+                    // Set the image dimensions to fit the available space
+                    SetImageDimensions(bitmap);
+                    
+                    // Update status information (only if not in fullscreen)
+                    if (!_isFullscreen)
+                    {
+                        ImageInfoText.Text = _displayEngine.GetImageInfo(imageFile, bitmap);
+                        StatusText.Text = $"Showing: {imageFile.FileName} ({_imageManager.RemainingImageCount} remaining)";
+                    }
+                    
+                    // Reset scroll position
+                    ImageScrollViewer.ScrollToHorizontalOffset(0);
+                    ImageScrollViewer.ScrollToVerticalOffset(0);
+                }
+                else
+                {
+                    if (!_isFullscreen)
+                    {
+                        StatusText.Text = "Failed to load image";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error displaying image: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void NextImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadNextImage();
+        }
+
+        private void SetImageDimensions(BitmapSource bitmap)
+        {
+            if (bitmap == null) return;
+
+            // Get the available space
+            var availableSize = GetAvailableImageSize();
+            
+            // Check if the image is larger than the available space
+            bool isImageTooWide = bitmap.PixelWidth > availableSize.Width;
+            bool isImageTooTall = bitmap.PixelHeight > availableSize.Height;
+            
+            if (!isImageTooWide && !isImageTooTall)
+            {
+                // Image fits, use original dimensions
+                MainImage.Width = bitmap.PixelWidth;
+                MainImage.Height = bitmap.PixelHeight;
+                System.Diagnostics.Debug.WriteLine($"Image fits, using original size: {bitmap.PixelWidth}x{bitmap.PixelHeight}");
+            }
+            else
+            {
+                // Calculate the scale factor to fit the image within the available space
+                double scaleX = availableSize.Width / bitmap.PixelWidth;
+                double scaleY = availableSize.Height / bitmap.PixelHeight;
+                double scale = Math.Min(scaleX, scaleY);
+                
+                // Set the image dimensions
+                MainImage.Width = bitmap.PixelWidth * scale;
+                MainImage.Height = bitmap.PixelHeight * scale;
+                
+                System.Diagnostics.Debug.WriteLine($"Scaling image to: {MainImage.Width}x{MainImage.Height} (scale: {scale})");
+            }
+        }
+
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // Re-display the current image with new scaling when window size changes
+            if (_currentImage != null)
+            {
+                DisplayImage(_currentImage);
+            }
+        }
+
+
+        private Size GetAvailableImageSize()
+        {
+            double availableWidth, availableHeight;
+
+            if (_isFullscreen)
+            {
+                // In fullscreen, use the entire screen size
+                availableWidth = SystemParameters.PrimaryScreenWidth;
+                availableHeight = SystemParameters.PrimaryScreenHeight;
+            }
+            else
+            {
+                // In windowed mode, use the actual image canvas size
+                // Get the ImageBorder's actual size, which represents the image canvas
+                var imageBorder = ImageBorder;
+                availableWidth = imageBorder.ActualWidth;
+                availableHeight = imageBorder.ActualHeight;
+                
+                // If the border hasn't been rendered yet, calculate from window size
+                if (availableWidth <= 0 || availableHeight <= 0)
+                {
+                    var windowWidth = ActualWidth;
+                    var windowHeight = ActualHeight;
+                    
+                    // Subtract space for toolbar (top) and status bar (bottom)
+                    // Toolbar is typically around 40px, status bar around 30px
+                    var uiHeight = 70;
+                    
+                    // Account for margins and borders (5px on each side = 10px total)
+                    var margins = 10;
+                    
+                    availableWidth = windowWidth - margins;
+                    availableHeight = windowHeight - uiHeight - margins;
+                }
+                
+                // Add a small buffer to account for borders, padding, and rendering differences
+                // The ImageBorder has BorderThickness="1" and there might be internal padding
+                var buffer = 4; // 2 pixels on each side
+                availableWidth = Math.Max(0, availableWidth - buffer);
+                availableHeight = Math.Max(0, availableHeight - buffer);
+                
+                // Debug output
+                System.Diagnostics.Debug.WriteLine($"ImageBorder: {imageBorder.ActualWidth}x{imageBorder.ActualHeight}, Available: {availableWidth}x{availableHeight}");
+            }
+
+            // Fallback to reasonable defaults if calculations fail
+            if (availableWidth <= 0) availableWidth = 800;
+            if (availableHeight <= 0) availableHeight = 600;
+
+            return new Size(availableWidth, availableHeight);
+        }
+
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Space:
+                    if (_imageManager.HasImages)
+                    {
+                        LoadNextImage();
+                    }
+                    e.Handled = true;
+                    break;
+                    
+                case Key.Enter:
+                    ToggleFullscreen();
+                    e.Handled = true;
+                    break;
+                    
+                case Key.F11:
+                    ToggleFullscreen();
+                    e.Handled = true;
+                    break;
+                    
+                case Key.Escape:
+                    if (_isFullscreen)
+                    {
+                        ExitFullscreen();
+                    }
+                    else
+                    {
+                        // Exit application when Escape is pressed in normal window mode
+                        Close();
+                    }
+                    e.Handled = true;
+                    break;
+                    
+                case Key.Q:
+                    // Exit application when Q is pressed
+                    Close();
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        private void ToggleFullscreen()
+        {
+            if (_isFullscreen)
+            {
+                ExitFullscreen();
+            }
+            else
+            {
+                EnterFullscreen();
+            }
+        }
+
+        private void EnterFullscreen()
+        {
+            if (_isFullscreen) return;
+
+            // Store current window properties
+            _previousWindowState = WindowState;
+            _previousWindowStyle = WindowStyle;
+            _previousTopmost = Topmost;
+
+            // Hide all UI elements
+            TopToolbar.Visibility = Visibility.Collapsed;
+            BottomStatusBar.Visibility = Visibility.Collapsed;
+            ImageBorder.BorderThickness = new Thickness(0);
+            ImageBorder.Margin = new Thickness(0);
+
+            // Set window to true fullscreen
+            WindowStyle = WindowStyle.None;
+            WindowState = WindowState.Maximized;
+            Topmost = true;
+            ResizeMode = ResizeMode.NoResize;
+
+            _isFullscreen = true;
+
+            // Force a layout update and rescale the image for fullscreen
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                UpdateLayout();
+                if (_currentImage != null)
+                {
+                    DisplayImage(_currentImage);
+                }
+            }), System.Windows.Threading.DispatcherPriority.Render);
+        }
+
+        private void ExitFullscreen()
+        {
+            if (!_isFullscreen) return;
+
+            // Restore window properties
+            WindowStyle = _previousWindowStyle;
+            WindowState = _previousWindowState;
+            Topmost = _previousTopmost;
+            ResizeMode = ResizeMode.CanResize;
+
+            // Show UI elements
+            TopToolbar.Visibility = Visibility.Visible;
+            BottomStatusBar.Visibility = Visibility.Visible;
+            ImageBorder.BorderThickness = new Thickness(1);
+            ImageBorder.Margin = new Thickness(5);
+
+            _isFullscreen = false;
+
+            // Force a layout update and rescale the image for the new window size
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                UpdateLayout();
+                if (_currentImage != null)
+                {
+                    DisplayImage(_currentImage);
+                }
+            }), System.Windows.Threading.DispatcherPriority.Render);
+        }
+
+        private void OnImageLoadError(object sender, Exception ex)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatusText.Text = $"Error loading image: {ex.Message}";
+            });
+        }
+
+        private void LoadDisplaySettings()
+        {
+            try
+            {
+                // Set window size and position from settings
+                if (_displaySettings.WindowSize.Width > 0 && _displaySettings.WindowSize.Height > 0)
+                {
+                    Width = _displaySettings.WindowSize.Width;
+                    Height = _displaySettings.WindowSize.Height;
+                }
+                
+                if (_displaySettings.WindowLocation.X > 0 && _displaySettings.WindowLocation.Y > 0)
+                {
+                    Left = _displaySettings.WindowLocation.X;
+                    Top = _displaySettings.WindowLocation.Y;
+                }
+                
+                WindowState = _displaySettings.WindowState;
+            }
+            catch (Exception ex)
+            {
+                // If loading settings fails, use defaults
+                System.Diagnostics.Debug.WriteLine($"Error loading display settings: {ex.Message}");
+            }
+        }
+
+        private void SaveDisplaySettings()
+        {
+            try
+            {
+                _displaySettings.WindowSize = new Size(Width, Height);
+                _displaySettings.WindowLocation = new Point(Left, Top);
+                _displaySettings.WindowState = WindowState;
+                _displaySettings.IsFullscreen = _isFullscreen;
+                _displaySettings.LastSelectedFolder = _selectedFolder;
+                
+                // In a real application, you would save these to a file or registry
+                // For now, we'll just keep them in memory
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving display settings: {ex.Message}");
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            SaveDisplaySettings();
+            _displayEngine.DisposeCurrentImage();
+            base.OnClosed(e);
+        }
+    }
+}
