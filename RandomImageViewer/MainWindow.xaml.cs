@@ -346,7 +346,17 @@ namespace RandomImageViewer
                     NextImageButton.IsEnabled = _imageManager.HasImages;
                     PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
                 }
-                // If no forward history, we're already at the end - do nothing
+                // If no forward history, we're already at the end
+                else
+                {
+                    // If we're viewing a collection, skip it and move to next random image
+                    if (_imageManager.IsInCollection)
+                    {
+                        _imageManager.SkipCurrentCollection();
+                        LoadNextImage();
+                    }
+                    // If not in a collection, we're already at the end - do nothing
+                }
             }
             catch (Exception ex)
             {

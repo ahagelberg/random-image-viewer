@@ -9,7 +9,7 @@ A Windows GUI application for viewing images in random order from selected folde
 - **Keyboard Navigation**: 
   - `Space` - Next random image (or step through forward history)
   - `Backspace` - Previous image (navigation history)
-  - `End` - Jump to end of history (most recent image)
+  - `End` - Jump to end of history (most recent image), or skip current collection if at end of history
   - `Delete` - Delete current image (with confirmation)
   - `Enter` - Toggle fullscreen mode (shows only the image, hides all UI)
   - `F11` - Alternative fullscreen toggle
