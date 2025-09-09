@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,6 +25,7 @@ namespace RandomImageViewer
         private WindowStyle _previousWindowStyle;
         private bool _previousTopmost;
         private DisplaySettings _displaySettings;
+        private readonly Stack<ImageFile> _navigationHistory;
 
         public MainWindow()
         {
@@ -32,6 +34,7 @@ namespace RandomImageViewer
             _imageManager = new ImageManager();
             _displayEngine = new DisplayEngine();
             _displaySettings = new DisplaySettings();
+            _navigationHistory = new Stack<ImageFile>();
             
             // Subscribe to events
             _imageManager.ScanProgressChanged += OnScanProgressChanged;
@@ -40,6 +43,9 @@ namespace RandomImageViewer
             
             // Set focus to window for keyboard input
             Loaded += (s, e) => Focus();
+            
+            // Add global key handler for fullscreen
+            AddHandler(KeyDownEvent, new KeyEventHandler(GlobalKeyDown), true);
             
             // Load display settings
             LoadDisplaySettings();
@@ -95,6 +101,7 @@ namespace RandomImageViewer
                 StatusText.Text = message;
                 ProgressText.Text = "";
                 NextImageButton.IsEnabled = _imageManager.HasImages;
+                PreviousImageButton.IsEnabled = false; // No history yet
                 SelectFolderButton.IsEnabled = true;
                 
                 if (_imageManager.HasImages)
@@ -109,6 +116,12 @@ namespace RandomImageViewer
         {
             try
             {
+                // Add current image to history before moving to next
+                if (_currentImage != null)
+                {
+                    _navigationHistory.Push(_currentImage);
+                }
+
                 var nextImage = _imageManager.GetNextRandomImage();
                 if (nextImage == null)
                 {
@@ -121,6 +134,10 @@ namespace RandomImageViewer
                 {
                     _currentImage = nextImage;
                     DisplayImage(nextImage);
+                    
+                    // Update button states
+                    NextImageButton.IsEnabled = _imageManager.HasImages;
+                    PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
                 }
             }
             catch (Exception ex)
@@ -172,6 +189,110 @@ namespace RandomImageViewer
         private void NextImageButton_Click(object sender, RoutedEventArgs e)
         {
             LoadNextImage();
+        }
+
+        private void PreviousImageButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPreviousImage();
+        }
+
+        private void LoadPreviousImage()
+        {
+            try
+            {
+                if (_navigationHistory.Count > 0)
+                {
+                    // Get the previous image from history
+                    var previousImage = _navigationHistory.Pop();
+                    
+                    // Add current image back to the remaining images list
+                    if (_currentImage != null)
+                    {
+                        _imageManager.AddImageBack(_currentImage);
+                    }
+                    
+                    _currentImage = previousImage;
+                    DisplayImage(previousImage);
+                    
+                    // Update button states
+                    NextImageButton.IsEnabled = _imageManager.HasImages;
+                    PreviousImageButton.IsEnabled = _navigationHistory.Count > 0;
+                }
+                else
+                {
+                    if (!_isFullscreen)
+                    {
+                        StatusText.Text = "No previous images in history";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading previous image: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeleteCurrentImage()
+        {
+            if (_currentImage == null) return;
+
+            try
+            {
+                // Show confirmation dialog
+                var result = MessageBox.Show(
+                    $"Are you sure you want to delete '{_currentImage.FileName}'?\n\nThis action cannot be undone.",
+                    "Delete Image",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Delete the file from disk
+                    if (File.Exists(_currentImage.FilePath))
+                    {
+                        File.Delete(_currentImage.FilePath);
+                    }
+
+                    // Remove from image manager
+                    _imageManager.RemoveImage(_currentImage);
+
+                    // Remove from navigation history if it exists there
+                    var historyArray = _navigationHistory.ToArray();
+                    _navigationHistory.Clear();
+                    foreach (var img in historyArray)
+                    {
+                        if (!img.Equals(_currentImage))
+                        {
+                            _navigationHistory.Push(img);
+                        }
+                    }
+
+                    // Load next image
+                    var nextImage = _imageManager.GetNextRandomImage();
+                    if (nextImage != null)
+                    {
+                        _currentImage = nextImage;
+                        DisplayImage(nextImage);
+                    }
+                    else
+                    {
+                        // No more images
+                        _currentImage = null;
+                        MainImage.Source = null;
+                        if (!_isFullscreen)
+                        {
+                            StatusText.Text = "No more images available";
+                            ImageInfoText.Text = "No image loaded";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error deleting image: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SetImageDimensions(BitmapSource bitmap)
@@ -270,24 +391,19 @@ namespace RandomImageViewer
         }
 
 
-        private void Window_KeyDown(object sender, KeyEventArgs e)
+        private void GlobalKeyDown(object sender, KeyEventArgs e)
         {
+            // Handle global shortcuts that should work regardless of focus
             switch (e.Key)
             {
-                case Key.Space:
-                    if (_imageManager.HasImages)
-                    {
-                        LoadNextImage();
-                    }
-                    e.Handled = true;
-                    break;
-                    
                 case Key.Enter:
+                    // Global fullscreen toggle - always works
                     ToggleFullscreen();
                     e.Handled = true;
                     break;
                     
                 case Key.F11:
+                    // Global fullscreen toggle - always works
                     ToggleFullscreen();
                     e.Handled = true;
                     break;
@@ -308,6 +424,33 @@ namespace RandomImageViewer
                 case Key.Q:
                     // Exit application when Q is pressed
                     Close();
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Handle navigation shortcuts (only when window has focus)
+            switch (e.Key)
+            {
+                case Key.Space:
+                    if (_imageManager.HasImages)
+                    {
+                        LoadNextImage();
+                    }
+                    e.Handled = true;
+                    break;
+                    
+                case Key.Back:
+                    // Backspace key for previous image
+                    LoadPreviousImage();
+                    e.Handled = true;
+                    break;
+                    
+                case Key.Delete:
+                    // Delete key for image deletion with confirmation
+                    DeleteCurrentImage();
                     e.Handled = true;
                     break;
             }
