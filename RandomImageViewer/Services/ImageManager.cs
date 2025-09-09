@@ -15,7 +15,7 @@ namespace RandomImageViewer.Services
         private readonly List<ImageFile> _allImages;
         private readonly List<ImageFile> _remainingImages;
         private readonly Random _random;
-        private readonly string[] _supportedExtensions = { ".jpg", ".jpeg", ".png", ".gif" };
+        private readonly string[] _supportedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
         private readonly CollectionManager _collectionManager;
         private CollectionInfo _currentCollection;
 

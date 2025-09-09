@@ -4,7 +4,7 @@ A Windows GUI application for viewing images in random order from selected folde
 
 ## Features (Phase 1)
 
-- **Folder Selection**: Select a folder and recursively scan for JPEG, PNG, and GIF images (including animated GIFs)
+- **Folder Selection**: Select a folder and recursively scan for JPEG, PNG, GIF, and WebP images (including animated GIFs)
 - **Random Display**: Show images in random order without repetition
 - **Keyboard Navigation**: 
   - `Space` - Next random image (or step through forward history)
@@ -73,6 +73,7 @@ A Windows GUI application for viewing images in random order from selected folde
 - JPEG (.jpg, .jpeg)
 - PNG (.png)
 - GIF (.gif) - Both static and animated GIFs
+- WebP (.webp) - Modern image format with excellent compression
 
 ## Special Collection Folders
 
@@ -114,7 +115,7 @@ Create a `.collection` file with JSON content to customize collection behavior:
 
 - Zoom controls (+/- keys)
 - Pan controls (arrow keys)
-- Additional image format support (BMP, TIFF, WebP)
+- Additional image format support (BMP, TIFF)
 
 ## Technical Details
 
