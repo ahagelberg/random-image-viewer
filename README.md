@@ -9,11 +9,12 @@ A Windows GUI application for viewing images in random order from selected folde
 - **Keyboard Navigation**: 
   - `Space` - Next random image (or step through forward history)
   - `Backspace` - Previous image (navigation history)
-  - `End` - Jump to end of history (most recent image), or skip current collection if at end of history
+  - `End` or `N` - Jump to end of history (most recent image), or skip current collection if at end of history
   - `Delete` - Delete current image (with confirmation)
   - `Enter` - Toggle fullscreen mode (shows only the image, hides all UI)
   - `F11` - Alternative fullscreen toggle
   - `F` - Alternative fullscreen toggle
+  - **Double-click image** - Toggle fullscreen mode
   - `Escape` - Exit fullscreen mode (or exit application if not in fullscreen)
   - `Q` - Quit application
 - **Image Scaling**: Static images automatically scale to fit the display area while maintaining aspect ratios (animated GIFs display at original size)
@@ -64,7 +65,7 @@ A Windows GUI application for viewing images in random order from selected folde
 3. Wait for the folder scan to complete
 4. Use the Space key to navigate through images in random order
 5. Use Backspace to go back to previously viewed images
-6. Use End to jump to the most recent image (if you've stepped back in history)
+6. Use End or N to jump to the most recent image (if you've stepped back in history)
 7. Use Delete to remove unwanted images (with confirmation)
 8. Use Enter to toggle fullscreen mode for better viewing (F11 also works)
 9. Press Esc or Q to exit the application

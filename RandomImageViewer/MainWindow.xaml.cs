@@ -138,6 +138,40 @@ namespace RandomImageViewer
             });
         }
 
+        private int _clickCount = 0;
+        private System.Windows.Threading.DispatcherTimer _clickTimer;
+
+        private void ImageContainer_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _clickCount++;
+            
+            if (_clickCount == 1)
+            {
+                // Start timer for double-click detection
+                _clickTimer = new System.Windows.Threading.DispatcherTimer();
+                _clickTimer.Interval = TimeSpan.FromMilliseconds(400);
+                _clickTimer.Tick += (s, args) =>
+                {
+                    // Timer expired - this was just a single click
+                    _clickCount = 0;
+                    _clickTimer.Stop();
+                    System.Diagnostics.Debug.WriteLine("Single click confirmed");
+                };
+                _clickTimer.Start();
+                System.Diagnostics.Debug.WriteLine("First click - starting timer");
+            }
+            else if (_clickCount == 2)
+            {
+                // This is a double-click
+                _clickTimer?.Stop();
+                _clickCount = 0;
+                System.Diagnostics.Debug.WriteLine("Double-click detected - toggling fullscreen");
+                ToggleFullscreen();
+                e.Handled = true;
+            }
+        }
+
+
         private void OnScanCompleted(object sender, string message)
         {
             Dispatcher.Invoke(() =>
@@ -586,6 +620,7 @@ namespace RandomImageViewer
                     break;
                     
                 case Key.End:
+                case Key.N:
                     // Jump to the end of forward history (most recent image)
                     JumpToEndOfHistory();
                     e.Handled = true;

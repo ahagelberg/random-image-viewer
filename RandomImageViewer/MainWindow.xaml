@@ -64,7 +64,7 @@
             
             <Separator Margin="10,0"/>
             
-            <TextBlock Text="Space: Next | Backspace: Previous | End: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Esc: Exit | Q: Quit"
+                <TextBlock Text="Space: Next | Backspace: Previous | End/N: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Esc: Exit | Q: Quit"
                        Style="{StaticResource InfoTextStyle}"
                        VerticalAlignment="Center"
                        Focusable="False"/>
@@ -83,17 +83,18 @@
                           VerticalScrollBarVisibility="Auto"
                           Focusable="False">
                 
-                <Border Name="ImageContainer" 
-                        HorizontalAlignment="Center" 
-                        VerticalAlignment="Center"
-                        Focusable="False">
+                <Grid Name="ImageContainer" 
+                      HorizontalAlignment="Center" 
+                      VerticalAlignment="Center"
+                      Focusable="True"
+                      MouseLeftButtonDown="ImageContainer_MouseLeftButtonDown">
                     <Image Name="MainImage" 
                            Stretch="Uniform"
                            HorizontalAlignment="Center" 
                            VerticalAlignment="Center"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            Focusable="False"/>
-                </Border>
+                </Grid>
             </ScrollViewer>
         </Border>
 
