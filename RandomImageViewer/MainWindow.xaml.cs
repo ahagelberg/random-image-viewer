@@ -560,6 +560,12 @@ namespace RandomImageViewer
                     e.Handled = true;
                     break;
                     
+                case Key.F:
+                    // Global fullscreen toggle - always works
+                    ToggleFullscreen();
+                    e.Handled = true;
+                    break;
+                    
                 case Key.Escape:
                     if (_isFullscreen)
                     {

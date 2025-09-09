@@ -35,7 +35,8 @@ namespace RandomImageViewer.Services
         {
             _allImages = new List<ImageFile>();
             _remainingImages = new List<ImageFile>();
-            _random = new Random();
+            // Use current time as seed for better randomization between runs
+            _random = new Random((int)DateTime.Now.Ticks);
             _collectionManager = new CollectionManager();
         }
 
@@ -66,8 +67,9 @@ namespace RandomImageViewer.Services
 
                     int processedCount = 0;
                     bool readyToStartFired = false;
-                    const int minImagesToStart = 10; // Start showing images after finding 10
-                    const int batchSize = 50; // Process files in batches for better performance
+                    const int minImagesToStart = 50; // Start showing images after finding 50 (better randomization)
+                    const int batchSize = 25; // Smaller batches for more frequent updates
+                    const int reshuffleThreshold = 25; // Re-shuffle when we get 25 more images
 
                     // Process files in batches for better performance on network shares
                     for (int i = 0; i < allFiles.Count; i += batchSize)
@@ -89,6 +91,11 @@ namespace RandomImageViewer.Services
                                     ShuffleList(_remainingImages);
                                     ReadyToStart?.Invoke(this, EventArgs.Empty);
                                     readyToStartFired = true;
+                                }
+                                // Re-shuffle periodically for better randomization
+                                else if (readyToStartFired && _allImages.Count % reshuffleThreshold == 0)
+                                {
+                                    ShuffleList(_remainingImages);
                                 }
                             }
                             catch (Exception ex)
@@ -116,9 +123,9 @@ namespace RandomImageViewer.Services
                         ShuffleList(_remainingImages);
                         ReadyToStart?.Invoke(this, EventArgs.Empty);
                     }
-                    else if (readyToStartFired && _remainingImages.Count > minImagesToStart)
+                    else if (readyToStartFired)
                     {
-                        // Re-shuffle all images for better randomness
+                        // Final shuffle for better randomness
                         ShuffleList(_remainingImages);
                     }
                 }

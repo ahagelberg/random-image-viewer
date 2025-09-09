@@ -13,6 +13,7 @@ A Windows GUI application for viewing images in random order from selected folde
   - `Delete` - Delete current image (with confirmation)
   - `Enter` - Toggle fullscreen mode (shows only the image, hides all UI)
   - `F11` - Alternative fullscreen toggle
+  - `F` - Alternative fullscreen toggle
   - `Escape` - Exit fullscreen mode (or exit application if not in fullscreen)
   - `Q` - Quit application
 - **Image Scaling**: Static images automatically scale to fit the display area while maintaining aspect ratios (animated GIFs display at original size)

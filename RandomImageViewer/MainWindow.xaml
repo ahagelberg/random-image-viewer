@@ -64,7 +64,7 @@
             
             <Separator Margin="10,0"/>
             
-            <TextBlock Text="Space: Next | Backspace: Previous | End: Jump to End | Delete: Remove | Enter: Fullscreen | Esc: Exit | Q: Quit"
+            <TextBlock Text="Space: Next | Backspace: Previous | End: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Esc: Exit | Q: Quit"
                        Style="{StaticResource InfoTextStyle}"
                        VerticalAlignment="Center"
                        Focusable="False"/>
