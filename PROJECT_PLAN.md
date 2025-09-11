@@ -8,7 +8,7 @@ A Windows GUI application for displaying images in random order from selected fo
 
 ### Primary Features
 - **Folder Selection**: Select a root folder and recursively scan for images
-- **Image Format Support**: JPEG, PNG (initial), with future support for GIF, animated GIF, and other formats
+- **Image Format Support**: JPEG, PNG, GIF (static and animated), WebP (static and animated), with future support for other formats
 - **Random Display**: Show images in random order without repetition
 - **Navigation History**: Track viewed images to allow backward navigation
 - **Keyboard Controls**: Space (next), Backspace (previous), Enter (fullscreen toggle), Delete (remove image), Esc and Q (quit)
@@ -110,7 +110,7 @@ public class InputHandler
 - Simple keyboard input handling
 
 **Key Features:**
-- Select folder and scan for JPEG/PNG files
+- Select folder and scan for JPEG/PNG/GIF/WebP files
 - Display first image
 - Space key to show next random image
 - Basic error handling
@@ -198,10 +198,10 @@ RandomImageViewer/
 **Phase 1:**
 - JPEG (.jpg, .jpeg)
 - PNG (.png)
+- GIF (.gif) - static and animated
+- WebP (.webp) - static and animated
 
 **Future Phases:**
-- GIF (.gif) - static and animated
-- WebP (.webp)
 - TIFF (.tiff, .tif)
 - BMP (.bmp)
 - ICO (.ico)

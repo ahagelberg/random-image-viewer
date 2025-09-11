@@ -19,6 +19,7 @@ namespace RandomImageViewer
     {
         private readonly ImageManager _imageManager;
         private readonly DisplayEngine _displayEngine;
+        private readonly AnimatedWebPEngine _animatedWebPEngine;
         private ImageFile _currentImage;
         private string _selectedFolder;
         private bool _isFullscreen = false;
@@ -35,6 +36,7 @@ namespace RandomImageViewer
             
             _imageManager = new ImageManager();
             _displayEngine = new DisplayEngine();
+            _animatedWebPEngine = new AnimatedWebPEngine();
             _displaySettings = new DisplaySettings();
             _navigationHistory = new Stack<ImageFile>();
             _forwardHistory = new Stack<ImageFile>();
@@ -46,6 +48,7 @@ namespace RandomImageViewer
             _imageManager.CollectionStarted += OnCollectionStarted;
             _imageManager.CollectionCompleted += OnCollectionCompleted;
             _displayEngine.ImageLoadError += OnImageLoadError;
+            _animatedWebPEngine.FrameChanged += OnAnimatedWebPFrameChanged;
             
             // Set focus to window for keyboard input
             Loaded += (s, e) => Focus();
@@ -257,7 +260,7 @@ namespace RandomImageViewer
                 var bitmap = _displayEngine.LoadImage(imageFile);
                 if (bitmap != null)
                 {
-                    // Check if this is a GIF file
+                    // Check if this is a GIF file (XamlAnimatedGif only supports GIF)
                     if (imageFile.FilePath.ToLowerInvariant().EndsWith(".gif"))
                     {
                         // For GIF files, use XamlAnimatedGif
@@ -269,10 +272,45 @@ namespace RandomImageViewer
                         MainImage.Width = double.NaN; // Auto size
                         MainImage.Height = double.NaN; // Auto size
                     }
+                    else if (imageFile.FilePath.ToLowerInvariant().EndsWith(".webp"))
+                    {
+                        // Check if WebP is animated
+                        if (AnimatedWebPEngine.IsAnimatedWebP(imageFile.FilePath))
+                        {
+                            // For animated WebP files, use our custom engine
+                            if (_animatedWebPEngine.LoadAnimatedWebP(imageFile.FilePath))
+                            {
+                                var firstFrame = _animatedWebPEngine.GetFirstFrame();
+                                if (firstFrame != null)
+                                {
+                                    MainImage.Source = firstFrame;
+                                    // Don't scale animated WebP - display at original size
+                                    MainImage.Width = double.NaN; // Auto size
+                                    MainImage.Height = double.NaN; // Auto size
+                                    
+                                    // Start animation
+                                    _animatedWebPEngine.StartAnimation();
+                                }
+                            }
+                            else
+                            {
+                                // Fallback to static display if loading fails
+                                MainImage.Source = bitmap;
+                                SetImageDimensions(bitmap);
+                            }
+                        }
+                        else
+                        {
+                            // For static WebP files, use normal bitmap display
+                            AnimationBehavior.SetSourceUri(MainImage, null); // Clear any animation
+                            MainImage.Source = bitmap;
+                            SetImageDimensions(bitmap);
+                        }
+                    }
                     else
                     {
                         // For static images, use normal bitmap display
-                        AnimationBehavior.SetSourceUri(MainImage, null); // Clear any GIF animation
+                        AnimationBehavior.SetSourceUri(MainImage, null); // Clear any animation
                         MainImage.Source = bitmap;
                         
                         // Set the image dimensions to fit the available space
@@ -730,6 +768,14 @@ namespace RandomImageViewer
             });
         }
 
+        private void OnAnimatedWebPFrameChanged(object sender, WriteableBitmap frame)
+        {
+            if (frame != null)
+            {
+                MainImage.Source = frame;
+            }
+        }
+
         private void LoadDisplaySettings()
         {
             try
@@ -779,6 +825,7 @@ namespace RandomImageViewer
         {
             SaveDisplaySettings();
             _displayEngine.DisposeCurrentImage();
+            _animatedWebPEngine?.Dispose();
             base.OnClosed(e);
         }
     }
