@@ -91,8 +91,22 @@ namespace RandomImageViewer
         {
             try
             {
+                // Stop any running animations when opening new folder
+                _animatedWebPEngine?.StopAnimation();
+                AnimationBehavior.SetSourceUri(MainImage, null); // Clear any GIF animation
+                
+                // Clear the current image and reset UI
+                MainImage.Source = null;
+                _currentImage = null;
+                _navigationHistory.Clear();
+                _forwardHistory.Clear();
+                
+                // Clear the old image list
+                _imageManager.ClearImages();
+                
                 StatusText.Text = "Scanning folder for images...";
                 NextImageButton.IsEnabled = false;
+                PreviousImageButton.IsEnabled = false;
                 SelectFolderButton.IsEnabled = false;
                 
                 await _imageManager.ScanFolderAsync(folderPath);
@@ -273,6 +287,10 @@ namespace RandomImageViewer
         {
             try
             {
+                // Stop any running animations before displaying new image
+                _animatedWebPEngine?.StopAnimation();
+                AnimationBehavior.SetSourceUri(MainImage, null); // Clear any GIF animation
+                
                 var bitmap = _displayEngine.LoadImage(imageFile);
                 if (bitmap != null)
                 {
@@ -693,6 +711,15 @@ namespace RandomImageViewer
                     // Jump to the end of forward history (most recent image)
                     JumpToEndOfHistory();
                     e.Handled = true;
+                    break;
+                    
+                case Key.O:
+                    // Ctrl+O for opening folder
+                    if (Keyboard.Modifiers == ModifierKeys.Control)
+                    {
+                        SelectFolderButton_Click(null, null);
+                        e.Handled = true;
+                    }
                     break;
             }
         }

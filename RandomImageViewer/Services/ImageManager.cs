@@ -321,6 +321,18 @@ namespace RandomImageViewer.Services
         }
 
         /// <summary>
+        /// Clears all images and collections (used when opening a new folder)
+        /// </summary>
+        public void ClearImages()
+        {
+            _allImages.Clear();
+            _remainingImages.Clear();
+            _allCollections.Clear();
+            _remainingCollections.Clear();
+            _currentCollection = null;
+        }
+
+        /// <summary>
         /// Shuffles a list using Fisher-Yates algorithm
         /// </summary>
         /// <param name="list">List to shuffle</param>
