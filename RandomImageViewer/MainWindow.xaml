@@ -1,7 +1,6 @@
 <Window x:Class="RandomImageViewer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:gif="http://wpfanimatedgif.codeplex.com"
         Title="Random Image Viewer" 
         Height="800" 
         Width="1200"
@@ -27,6 +26,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -64,17 +64,26 @@
             
             <Separator Margin="10,0"/>
             
-                <TextBlock Text="Space: Next | Backspace: Previous | End/N: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Esc: Exit | Q: Quit"
+            <TextBlock Text="Space: Next | Backspace: Previous | End/N: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Esc: Exit | Q: Quit"
                        Style="{StaticResource InfoTextStyle}"
                        VerticalAlignment="Center"
                        Focusable="False"/>
+
+            <!-- About Button -->
+            <Button Name="AboutButton" 
+                    Content="About" 
+                    Click="AboutButton_Click"
+                    Style="{StaticResource ButtonStyle}"
+                    Focusable="False"
+                    Width="60"
+                    Margin="5,0,0,0"/>
         </StackPanel>
 
         <!-- Main Image Display Area -->
-        <Border Name="ImageBorder" Grid.Row="1" 
+        <Border Name="ImageBorder" Grid.Row="2" 
                 BorderBrush="DarkGray" 
                 BorderThickness="1" 
-                Margin="5"
+                Margin="5,5,5,0"
                 Background="Black"
                 Focusable="False">
             
@@ -99,20 +108,22 @@
         </Border>
 
         <!-- Bottom Status Bar -->
-        <StackPanel Name="BottomStatusBar" Grid.Row="2" Orientation="Horizontal" Background="LightGray" Margin="5">
-            <TextBlock Name="ImageInfoText" 
-                       Text="No image loaded"
-                       Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"
-                       Focusable="False"/>
-            
-            <Separator Margin="10,0"/>
-            
-            <TextBlock Name="ProgressText" 
-                       Text=""
-                       Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"
-                       Focusable="False"/>
-        </StackPanel>
+        <Border Name="BottomStatusBar" Grid.Row="3" Background="LightGray" Margin="5,0,5,5" Height="25">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Name="ImageInfoText" 
+                           Text="No image loaded"
+                           Style="{StaticResource InfoTextStyle}"
+                           VerticalAlignment="Center"
+                           Focusable="False"/>
+                
+                <Separator Margin="10,0"/>
+                
+                <TextBlock Name="ProgressText" 
+                           Text=""
+                           Style="{StaticResource InfoTextStyle}"
+                           VerticalAlignment="Center"
+                           Focusable="False"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

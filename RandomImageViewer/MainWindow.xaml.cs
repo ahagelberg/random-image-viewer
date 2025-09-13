@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using RandomImageViewer.Models;
 using RandomImageViewer.Services;
+using RandomImageViewer.Utils;
 using XamlAnimatedGif;
 
 namespace RandomImageViewer
@@ -34,6 +35,10 @@ namespace RandomImageViewer
         public MainWindow()
         {
             InitializeComponent();
+            
+            // Set window title with version from version.txt
+            var versionInfo = VersionInfo.Data;
+            this.Title = $"{versionInfo.AppName} v{versionInfo.Version}";
             
             // Set icon if it exists
             if (File.Exists("app.ico"))
@@ -576,34 +581,49 @@ namespace RandomImageViewer
             }
             else
             {
-                // In windowed mode, use the actual image canvas size
-                // Get the ImageBorder's actual size, which represents the image canvas
+                // In windowed mode, use the ImageBorder's actual size
                 var imageBorder = ImageBorder;
+                
+                // Try to get the actual size first
                 availableWidth = imageBorder.ActualWidth;
                 availableHeight = imageBorder.ActualHeight;
                 
-                // If the border hasn't been rendered yet, calculate from window size
+                // If the border hasn't been rendered yet or size is invalid, calculate from window
                 if (availableWidth <= 0 || availableHeight <= 0)
                 {
                     var windowWidth = ActualWidth;
                     var windowHeight = ActualHeight;
                     
                     // Subtract space for toolbar (top) and status bar (bottom)
-                    // Toolbar is typically around 40px, status bar around 30px
-                    var uiHeight = 70;
+                    // Toolbar is typically around 40px, status bar is fixed at 25px
+                    var toolbarHeight = 40;
+                    var statusBarHeight = 25;
+                    var uiHeight = toolbarHeight + statusBarHeight;
                     
-                    // Account for margins and borders (5px on each side = 10px total)
-                    var margins = 10;
+                    // Account for margins: ImageBorder has Margin="5,5,5,0" and BottomStatusBar has Margin="5,0,5,5"
+                    // So we have 5px margins on left and right, 5px margin on top, and 5px margin on bottom
+                    var leftRightMargins = 10; // 5px on each side
+                    var topMargin = 5; // ImageBorder top margin
+                    var bottomMargin = 5; // BottomStatusBar bottom margin
                     
-                    availableWidth = windowWidth - margins;
-                    availableHeight = windowHeight - uiHeight - margins;
+                    availableWidth = windowWidth - leftRightMargins;
+                    availableHeight = windowHeight - uiHeight - topMargin - bottomMargin;
+                    
+                    // Add a small buffer to account for borders, padding, and rendering differences
+                    var buffer = 2; // 1 pixel on each side - reduced to eliminate small scrollbar
+                    availableWidth = Math.Max(0, availableWidth - buffer);
+                    availableHeight = Math.Max(0, availableHeight - buffer);
+                    
+                    // Debug output
+                    System.Diagnostics.Debug.WriteLine($"Window: {ActualWidth}x{ActualHeight}, UI Height: {uiHeight}, Margins: L/R={leftRightMargins}, T={topMargin}, B={bottomMargin}");
                 }
-                
-                // Add a small buffer to account for borders, padding, and rendering differences
-                // The ImageBorder has BorderThickness="1" and there might be internal padding
-                var buffer = 4; // 2 pixels on each side
-                availableWidth = Math.Max(0, availableWidth - buffer);
-                availableHeight = Math.Max(0, availableHeight - buffer);
+                else
+                {
+                    // Use the actual border size but subtract a small buffer to prevent scrollbars
+                    var buffer = 2; // 1 pixel on each side
+                    availableWidth = Math.Max(0, availableWidth - buffer);
+                    availableHeight = Math.Max(0, availableHeight - buffer);
+                }
                 
                 // Debug output
                 System.Diagnostics.Debug.WriteLine($"ImageBorder: {imageBorder.ActualWidth}x{imageBorder.ActualHeight}, Available: {availableWidth}x{availableHeight}");
@@ -787,6 +807,15 @@ namespace RandomImageViewer
             }
         }
 
+        private void AboutButton_Click(object sender, RoutedEventArgs e)
+        {
+            var aboutDialog = new AboutDialog
+            {
+                Owner = this
+            };
+            aboutDialog.ShowDialog();
+        }
+
         private void LoadDisplaySettings()
         {
             try
@@ -821,13 +850,11 @@ namespace RandomImageViewer
                 
                 WindowState = _displaySettings.WindowState;
                 
-                // Load last selected folder
+                // Remember last selected folder for the dialog, but don't auto-load
                 if (!string.IsNullOrEmpty(_displaySettings.LastSelectedFolder) && 
                     Directory.Exists(_displaySettings.LastSelectedFolder))
                 {
                     _selectedFolder = _displaySettings.LastSelectedFolder;
-                    // Auto-load the last folder
-                    _ = LoadImagesFromFolder(_selectedFolder);
                 }
             }
             catch (Exception ex)
@@ -841,9 +868,14 @@ namespace RandomImageViewer
         {
             try
             {
-                _displaySettings.WindowSize = new Size(Width, Height);
-                _displaySettings.WindowLocation = new Point(Left, Top);
-                _displaySettings.WindowState = WindowState;
+                // Only save window size, position, and state when not in fullscreen
+                if (!_isFullscreen)
+                {
+                    _displaySettings.WindowSize = new Size(Width, Height);
+                    _displaySettings.WindowLocation = new Point(Left, Top);
+                    _displaySettings.WindowState = WindowState;
+                }
+                
                 _displaySettings.IsFullscreen = _isFullscreen;
                 _displaySettings.LastSelectedFolder = _selectedFolder;
                 

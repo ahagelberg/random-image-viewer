@@ -1,0 +1,19 @@
+# Random Image Viewer - Version and Metadata
+# This is the single source of truth for version information
+
+VERSION=1.1.0
+MAJOR=1
+MINOR=1
+PATCH=0
+REVISION=0
+
+# Application Metadata
+APP_NAME=Random Image Viewer
+APP_DESCRIPTION=A Windows application for viewing images in random order from selected folders
+COMPANY=Your Company
+COPYRIGHT=Copyright © 2024
+PRODUCT=Random Image Viewer
+
+# Build Information
+BUILD_DATE=2024-12-19
+TARGET_FRAMEWORK=net8.0-windows

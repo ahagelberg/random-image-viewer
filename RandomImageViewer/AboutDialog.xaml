@@ -1,0 +1,61 @@
+<Window x:Class="RandomImageViewer.AboutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About Random Image Viewer" 
+        Height="300" 
+        Width="400"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- App Name -->
+        <TextBlock Grid.Row="0" 
+                   Text="Random Image Viewer" 
+                   FontSize="24" 
+                   FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,10"/>
+        
+        <!-- Version -->
+        <TextBlock Grid.Row="1" 
+                   Name="VersionText"
+                   FontSize="14" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,20"/>
+        
+        <!-- Description -->
+        <TextBlock Grid.Row="2" 
+                   Text="A Windows application for viewing images in random order from selected folders." 
+                   TextWrapping="Wrap" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,20"/>
+        
+        <!-- Features -->
+        <TextBlock Grid.Row="3" 
+                   Text="Features:&#x0a;• Random image display&#x0a;• Fullscreen mode&#x0a;• Keyboard navigation&#x0a;• Animated GIF and WebP support&#x0a;• Image scaling and history" 
+                   TextWrapping="Wrap" 
+                   HorizontalAlignment="Left" 
+                   Margin="0,0,0,20"/>
+        
+        <!-- Spacer -->
+        <Grid Grid.Row="4"/>
+        
+        <!-- OK Button -->
+        <Button Grid.Row="5" 
+                Name="OKButton" 
+                Content="OK" 
+                Width="80" 
+                Height="30" 
+                HorizontalAlignment="Center" 
+                Click="OKButton_Click"/>
+    </Grid>
+</Window>
