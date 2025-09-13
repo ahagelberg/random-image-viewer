@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -34,6 +35,12 @@ namespace RandomImageViewer
         {
             InitializeComponent();
             
+            // Set icon if it exists
+            if (File.Exists("app.ico"))
+            {
+                this.Icon = new BitmapImage(new Uri("app.ico", UriKind.Relative));
+            }
+            
             _imageManager = new ImageManager();
             _displayEngine = new DisplayEngine();
             _animatedWebPEngine = new AnimatedWebPEngine();
@@ -65,7 +72,7 @@ namespace RandomImageViewer
             var dialog = new OpenFolderDialog
             {
                 Title = "Select Folder Containing Images",
-                InitialDirectory = _selectedFolder ?? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+                InitialDirectory = !string.IsNullOrEmpty(_selectedFolder) ? _selectedFolder : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
             };
 
             if (dialog.ShowDialog() == true)
@@ -84,6 +91,10 @@ namespace RandomImageViewer
                 SelectFolderButton.IsEnabled = false;
                 
                 await _imageManager.ScanFolderAsync(folderPath);
+                
+                // Save the selected folder to settings
+                _displaySettings.LastSelectedFolder = folderPath;
+                SaveDisplaySettings();
             }
             catch (Exception ex)
             {
@@ -780,6 +791,15 @@ namespace RandomImageViewer
         {
             try
             {
+                var settingsFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), 
+                    "RandomImageViewer", "settings.json");
+                
+                if (File.Exists(settingsFile))
+                {
+                    var json = File.ReadAllText(settingsFile);
+                    _displaySettings = JsonSerializer.Deserialize<DisplaySettings>(json) ?? new DisplaySettings();
+                }
+                
                 // Set window size and position from settings
                 if (_displaySettings.WindowSize.Width > 0 && _displaySettings.WindowSize.Height > 0)
                 {
@@ -792,8 +812,23 @@ namespace RandomImageViewer
                     Left = _displaySettings.WindowLocation.X;
                     Top = _displaySettings.WindowLocation.Y;
                 }
+                else
+                {
+                    // Center the window if no saved position
+                    Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
+                    Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
+                }
                 
                 WindowState = _displaySettings.WindowState;
+                
+                // Load last selected folder
+                if (!string.IsNullOrEmpty(_displaySettings.LastSelectedFolder) && 
+                    Directory.Exists(_displaySettings.LastSelectedFolder))
+                {
+                    _selectedFolder = _displaySettings.LastSelectedFolder;
+                    // Auto-load the last folder
+                    _ = LoadImagesFromFolder(_selectedFolder);
+                }
             }
             catch (Exception ex)
             {
@@ -812,8 +847,14 @@ namespace RandomImageViewer
                 _displaySettings.IsFullscreen = _isFullscreen;
                 _displaySettings.LastSelectedFolder = _selectedFolder;
                 
-                // In a real application, you would save these to a file or registry
-                // For now, we'll just keep them in memory
+                // Save to JSON file
+                var settingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), 
+                    "RandomImageViewer");
+                Directory.CreateDirectory(settingsDir);
+                
+                var settingsFile = Path.Combine(settingsDir, "settings.json");
+                var json = JsonSerializer.Serialize(_displaySettings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(settingsFile, json);
             }
             catch (Exception ex)
             {
