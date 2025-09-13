@@ -33,51 +33,58 @@
         </Grid.RowDefinitions>
 
         <!-- Top Toolbar -->
-        <StackPanel Name="TopToolbar" Grid.Row="0" Orientation="Horizontal" Background="LightGray" Margin="5">
-            <Button Name="SelectFolderButton" 
-                    Content="Select Folder" 
-                    Click="SelectFolderButton_Click"
-                    Style="{StaticResource ButtonStyle}"
-                    Focusable="False"/>
+        <Grid Name="TopToolbar" Grid.Row="0" Background="LightGray" Margin="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
             
-            <Button Name="PreviousImageButton" 
-                    Content="Previous (Backspace)" 
-                    Click="PreviousImageButton_Click"
-                    Style="{StaticResource ButtonStyle}"
-                    IsEnabled="False"
-                    Focusable="False"/>
+            <!-- Main toolbar content -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Button Name="SelectFolderButton" 
+                        Content="Select Folder" 
+                        Click="SelectFolderButton_Click"
+                        Style="{StaticResource ButtonStyle}"
+                        Focusable="False"/>
+                
+                <Button Name="PreviousImageButton" 
+                        Content="Previous (Backspace)" 
+                        Click="PreviousImageButton_Click"
+                        Style="{StaticResource ButtonStyle}"
+                        IsEnabled="False"
+                        Focusable="False"/>
+                
+                <Button Name="NextImageButton" 
+                        Content="Next (Space)" 
+                        Click="NextImageButton_Click"
+                        Style="{StaticResource ButtonStyle}"
+                        IsEnabled="False"
+                        Focusable="False"/>
+                
+                <Separator Margin="10,0"/>
+                
+                <TextBlock Name="StatusText" 
+                           Text="Select a folder to begin viewing images"
+                           Style="{StaticResource InfoTextStyle}"
+                           VerticalAlignment="Center"
+                           Focusable="False"/>
+                
+                <Separator Margin="10,0"/>
+                
+                <TextBlock Text="Space: Next | Backspace: Previous | End/N: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Ctrl+O: Open Folder | Esc: Exit | Q: Quit"
+                           Style="{StaticResource InfoTextStyle}"
+                           VerticalAlignment="Center"
+                           Focusable="False"/>
+            </StackPanel>
             
-            <Button Name="NextImageButton" 
-                    Content="Next (Space)" 
-                    Click="NextImageButton_Click"
-                    Style="{StaticResource ButtonStyle}"
-                    IsEnabled="False"
-                    Focusable="False"/>
-            
-            <Separator Margin="10,0"/>
-            
-            <TextBlock Name="StatusText" 
-                       Text="Select a folder to begin viewing images"
-                       Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"
-                       Focusable="False"/>
-            
-            <Separator Margin="10,0"/>
-            
-            <TextBlock Text="Space: Next | Backspace: Previous | End/N: Jump to End | Delete: Remove | Enter/F11/F: Fullscreen | Ctrl+O: Open Folder | Esc: Exit | Q: Quit"
-                       Style="{StaticResource InfoTextStyle}"
-                       VerticalAlignment="Center"
-                       Focusable="False"/>
-
-            <!-- About Button -->
+            <!-- About Button - Right aligned, same style as other buttons -->
             <Button Name="AboutButton" 
                     Content="About" 
                     Click="AboutButton_Click"
                     Style="{StaticResource ButtonStyle}"
                     Focusable="False"
-                    Width="60"
-                    Margin="5,0,0,0"/>
-        </StackPanel>
+                    Grid.Column="1"/>
+        </Grid>
 
         <!-- Main Image Display Area -->
         <Border Name="ImageBorder" Grid.Row="2" 
