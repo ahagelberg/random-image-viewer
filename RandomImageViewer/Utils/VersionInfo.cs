@@ -139,3 +139,4 @@ namespace RandomImageViewer.Utils
         public string Product { get; set; } = "Random Image Viewer";
     }
 }
+

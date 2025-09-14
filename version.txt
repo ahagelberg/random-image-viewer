@@ -17,3 +17,4 @@ PRODUCT=Random Image Viewer
 # Build Information
 BUILD_DATE=2024-12-19
 TARGET_FRAMEWORK=net8.0-windows
+
