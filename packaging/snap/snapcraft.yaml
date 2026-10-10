@@ -1,0 +1,50 @@
+name: random-image-viewer
+base: core24
+# Kept in step with Cargo.toml by build-snap.sh, which refuses to build on drift.
+version: "2.0.0"
+summary: View images in random order from selected folders
+description: |
+  Shows the images of a folder in random order, without repeats.
+
+  Pick a folder and the viewer scans it recursively for JPEG, PNG, GIF and WebP
+  images, then displays them one at a time. The window size, position and the
+  last folder are remembered between runs, animated GIF and WebP play at their
+  native frame timing, viewed images can be revisited through the history, and
+  folders marked as collections are shown in order instead of at random.
+license: MIT
+grade: stable
+confinement: strict
+icon: staged/icon.png
+
+apps:
+  random-image-viewer:
+    command: bin/random-image-viewer
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+
+parts:
+  random-image-viewer:
+    plugin: nil
+    source: staged
+    build-packages:
+      - build-essential
+      - curl
+      - ca-certificates
+    override-build: |
+      # The build environment is the base (Ubuntu 24.04), so the binary links a
+      # glibc that is old enough for the runtime, unlike one built on a newer host.
+      cd "$CRAFT_PART_SRC"
+      export CARGO_HOME="$CRAFT_PART_BUILD/cargo"
+      export RUSTUP_HOME="$CRAFT_PART_BUILD/rustup"
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+      export PATH="$CARGO_HOME/bin:$PATH"
+      cargo build --release --locked
+      install -Dm755 target/release/random-image-viewer \
+        "$CRAFT_PART_INSTALL/bin/random-image-viewer"
+      install -Dm644 gui/random-image-viewer.desktop \
+        "$CRAFT_PART_INSTALL/share/applications/random-image-viewer.desktop"
+      install -Dm644 icon.png \
+        "$CRAFT_PART_INSTALL/share/icons/hicolor/256x256/apps/random-image-viewer.png"

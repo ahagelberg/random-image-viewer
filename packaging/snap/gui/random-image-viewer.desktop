@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Random Image Viewer
+Comment=View images in random order from selected folders
+Exec=random-image-viewer
+Icon=random-image-viewer
+Terminal=false
+Categories=Graphics;Viewer;
+Keywords=image;viewer;random;photos;
+StartupNotify=true

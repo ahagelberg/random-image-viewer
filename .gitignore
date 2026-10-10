@@ -1,3 +1,14 @@
+# Rust
+/target
+/installer
+
+# Snap packaging output
+/packaging/snap/staged
+/packaging/snap/parts
+/packaging/snap/stage
+/packaging/snap/prime
+/packaging/snap/*.snap
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
